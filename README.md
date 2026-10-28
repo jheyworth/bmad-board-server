@@ -57,7 +57,7 @@ uv run scripts/board_server.py --start   # opens http://127.0.0.1:8765/ and retu
 uv run scripts/board_server.py --stop
 ```
 
-A board started with `--start` runs on its own: it keeps going after you close the terminal or the Claude Code session that started it, until you run `--stop`. If you use another port, give `--stop` the same `--port`.
+A board started with `--start` runs on its own: it keeps going after you close the terminal or the Claude Code session that started it, until you run `--stop`. If the board is already running, `--start` just opens it. If you use another port, give `--stop` the same `--port`.
 
 Plain `uv run scripts/board_server.py` (without `--start`) runs the board inside that terminal instead: **Ctrl+C** stops it, and closing the terminal or Claude Code session stops it too.
 

@@ -1117,6 +1117,8 @@ def start(args: argparse.Namespace, folder: Path) -> int:
     found = probe(args.port)
     if found == "board":
         print(f"A board is already running at {url}\nStop it with: {stop_cmd}")
+        if not args.no_open:
+            webbrowser.open(url)
         return 0
     if found == "other":
         print(f"Port {args.port} is already in use by something else. Pick another with --port.", file=sys.stderr)
