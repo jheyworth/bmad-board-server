@@ -35,7 +35,7 @@ What's on the page:
 - **Cards:** click one (or press Enter) to open a **details panel** on the right. Hover for a **Copy** button that copies "ref title" ready to paste into Sofia or a build.
 - **Footer:** a key for the columns, badges and risk colours, plus the longest chain of stories still to build.
 
-Your open/closed toggles and the open details panel are remembered in the browser, so the 30-second refresh never resets them.
+Your open/closed toggles and the open details panel are remembered in the browser, so the 15-second refresh never resets them.
 
 ### Where the data comes from
 

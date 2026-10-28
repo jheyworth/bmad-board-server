@@ -2,7 +2,7 @@
 
 **What:** a live board of your BMad epics and stories, in your browser.
 - **Read-only**: never changes a ticket
-- **Live**: refreshes every 30s, keeps what you have open
+- **Live**: refreshes every 15s, keeps what you have open
 - **Same "what's next?"** as Sofia
 
 ## Why use it

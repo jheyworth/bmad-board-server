@@ -295,12 +295,21 @@ SCRIPT = r"""(function () {
       item.click();
     }
   });
+  function busy() {
+    // Text highlighted on the page, or a card or toggle reached with the keyboard: a swap would undo it.
+    var sel = window.getSelection ? window.getSelection() : null;
+    var panel = document.getElementById('panel');
+    if (sel && !sel.isCollapsed && !(panel && panel.contains(sel.anchorNode))) { return true; }
+    var el = document.activeElement;
+    return !!(el && el !== document.body && !(panel && panel.contains(el)) && el.matches && el.matches(':focus-visible'));
+  }
   function refresh() {
-    if (document.hidden) { return; }
+    if (document.hidden || busy()) { return; }
     fetch(window.location.href, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) { throw new Error('HTTP ' + r.status); }
       return r.text();
     }).then(function (text) {
+      if (busy()) { return; }
       var doc = new DOMParser().parseFromString(text, 'text/html');
       var script = document.body.querySelector(':scope > script');
       var olds = document.body.querySelectorAll(':scope > :not(script):not([data-keep])');
@@ -317,7 +326,7 @@ SCRIPT = r"""(function () {
   var stored = null;
   try { stored = window.localStorage.getItem(DETAIL); } catch (e) {}
   if (stored) { openDetail(stored); }
-  setInterval(refresh, 30000);
+  setInterval(refresh, 15000);
   document.addEventListener('visibilitychange', refresh);
 })();"""
 

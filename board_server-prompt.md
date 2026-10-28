@@ -10,7 +10,7 @@ Build me a live kanban board of this project's epics and stories, served on loca
 
 - One command starts it: `uv run scripts/board_server.py` (put the script in this repo's own scripts folder, not inside _bmad/, which the BMad installer replaces).
 - `--start` and `--stop` let me start and stop it with one command each, from a terminal or by asking Claude Code. A board started with `--start` keeps running after the terminal or Claude Code session that started it ends.
-- It opens my browser at `http://127.0.0.1:<port>`. Every page load reads the current ticket status. Every 30 seconds the template's script fetches the page again and swaps in the new content without reloading, so nothing I have open or selected is lost.
+- It opens my browser at `http://127.0.0.1:<port>`. Every page load reads the current ticket status. Every 15 seconds the template's script fetches the page again and swaps in the new content without reloading, so nothing I have open or selected is lost. It skips a refresh, and tries again 15 seconds later, while text on the page outside the details panel is highlighted or a card or toggle has keyboard focus, so the swap never undoes either.
 - It only reads. It never changes a ticket.
 - The top of the page answers "what's next?" with the same answer Sofia gives, because both read the same command.
 - The page looks exactly like the Template section below. The prose says what goes in it; the template says how it looks.
@@ -58,7 +58,7 @@ Build me a live kanban board of this project's epics and stories, served on loca
 - The Done heading is a toggle. Done cards start hidden; each epic's Done cell then shows only "n done" (nothing when n is 0). Clicking the heading shows the Done cards in every epic at once; clicking again hides them.
 - One row per epic, in the order of `epics`. Its band shows "Epic n" (the epic's `id`), the epic's title, "n/m done" (or DONE when the epic's own `status` is `done`) and the progress bar (full on a DONE epic).
 - A DONE epic starts collapsed: its band is a toggle and its cards are hidden. Epics that are not DONE are always open and their band is not a toggle.
-- The browser remembers every toggle (DONE epics, the Done heading, Blocked, Backlog Folder) through the template's script, so the 30-second refresh never undoes what you opened or closed.
+- The browser remembers every toggle (DONE epics, the Done heading, Blocked, Backlog Folder) through the template's script, so the 15-second refresh never undoes what you opened or closed.
 - Dropped tickets get no column: leave them off the board, add "· n dropped" to the epic label, and leave them out of m. Any other state not in the five columns goes on the "Other states" line under its epic, so no ticket silently disappears.
 - One card per ticket: its `ref` (for example 2.9), its title, the risk class from its `risk` (high, medium or low; none if missing), "spike" for spikes, and ★ when `hitl` is true. Cards show no state text: the column says it.
 - Every ticket card, on the board and in Next Up, has a Copy button that puts the ref and title on the clipboard ("2.14 The opening read is checked by a program"), ready to paste into Sofia or a build. A Backlog Folder card copies its title alone. The "Nothing can start now" card has no Copy button. The button shows when the pointer is over the card or the card has keyboard focus, and always on touch screens.
@@ -72,7 +72,7 @@ Build me a live kanban board of this project's epics and stories, served on loca
 
 Clicking a ticket card (on the board, in Next Up, in the Backlog Folder), an epic's title or band (as above), or its Details button opens a panel down the right-hand side with what that item is, in plain words. The board stays where it is.
 
-- Opening and closing: click a card or Details to open it; click another to switch; click the same one again, press Esc, click the ×, or click empty page space to close. Cards open from the keyboard with Enter or Space. The open item is marked on the board. The browser remembers which item is open, so a reload reopens it. The 30-second refresh leaves the panel open and refreshes its content.
+- Opening and closing: click a card or Details to open it; click another to switch; click the same one again, press Esc, click the ×, or click empty page space to close. Cards open from the keyboard with Enter or Space. The open item is marked on the board. The browser remembers which item is open, so a reload reopens it. The 15-second refresh leaves the panel open and refreshes its content.
 - The page asks the server for one item at a time: `GET /detail?kind=story&id=2.14`, `kind=epic&id=<epic slug>`, or `kind=backlog&id=<file name>`. The server answers with an HTML fragment from the Details template, reading only that item's files. An unknown kind or id, or a backlog id that is not a plain file name in the `backlog/` folder, gets the not-found fragment (status 404). If tickets.py fails, the fragment is the one error line.
 - Never show a file's frontmatter, raw state words or plan fields. Only the parts listed here, under the plain-English headings in the template. Show text with HTML escaped; then `**x**` becomes bold and `` `x` `` becomes code; `[text](link)` shows as its text.
 
@@ -366,12 +366,21 @@ footer p { margin: 0; }
       item.click();
     }
   });
+  function busy() {
+    // Text highlighted on the page, or a card or toggle reached with the keyboard: a swap would undo it.
+    var sel = window.getSelection ? window.getSelection() : null;
+    var panel = document.getElementById('panel');
+    if (sel && !sel.isCollapsed && !(panel && panel.contains(sel.anchorNode))) { return true; }
+    var el = document.activeElement;
+    return !!(el && el !== document.body && !(panel && panel.contains(el)) && el.matches && el.matches(':focus-visible'));
+  }
   function refresh() {
-    if (document.hidden) { return; }
+    if (document.hidden || busy()) { return; }
     fetch(window.location.href, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) { throw new Error('HTTP ' + r.status); }
       return r.text();
     }).then(function (text) {
+      if (busy()) { return; }
       var doc = new DOMParser().parseFromString(text, 'text/html');
       var script = document.body.querySelector(':scope > script');
       var olds = document.body.querySelectorAll(':scope > :not(script):not([data-keep])');
@@ -388,7 +397,7 @@ footer p { margin: 0; }
   var stored = null;
   try { stored = window.localStorage.getItem(DETAIL); } catch (e) {}
   if (stored) { openDetail(stored); }
-  setInterval(refresh, 30000);
+  setInterval(refresh, 15000);
   document.addEventListener('visibilitychange', refresh);
 })();
 ```
@@ -558,7 +567,8 @@ If `status` itself fails, the page is the header (initiative name, date, "read a
 - Confirm on first load: every DONE epic's cards are hidden and every other epic's are shown; the Done column shows "n done" per epic; Blocked and Backlog Folder are closed (unless nothing can start).
 - Confirm the page's `<style>` and `<script>` are byte-for-byte the template's CSS and script.
 - Confirm every ticket card has exactly one Copy button whose `data-copy` is its ref and title (title alone in the Backlog Folder), and that the "Nothing can start now" card has none.
-- In a headless browser: open the Done column and Blocked, wait past one 30-second refresh (or call the refresh by changing the page's visibility), and confirm both are still open, the toggles still work, and the content was swapped in rather than the page reloaded (a value set on `window` before the refresh is still there after it).
+- In the headless browser: highlight text on a board card, call the refresh, and confirm the board was not swapped and the highlight is still there; clear it, call the refresh again, and confirm the board is swapped. Do the same with a card focused by the Tab key.
+- In a headless browser: open the Done column and Blocked, wait past one 15-second refresh (or call the refresh by changing the page's visibility), and confirm both are still open, the toggles still work, and the content was swapped in rather than the page reloaded (a value set on `window` before the refresh is still there after it).
 - Fetch `/detail` with curl for: a done story that has a build plan and a story file, a planned story with no file, an epic, and a Backlog Folder ticket. Confirm each section comes from the right file, the Waits on names are right, the file links point at files that exist, and no frontmatter key or state word appears (for example `baseline_revision`, `route:`, `status:`, `ready-for-dev`). Confirm an unknown id and a backlog id containing `/` or `..` get the not-found fragment with status 404.
 - In the headless browser: click an open epic's band and a DONE epic's title, and confirm each opens that epic's panel; click a DONE epic's band away from the title and confirm it folds instead.
 - In the headless browser: click a card and confirm the panel opens with its title and the card is marked; trigger a refresh and confirm the panel is still open, with the same content; press Esc and confirm it closes; click an epic's Details and confirm the epic opens; reload and confirm it reopens.

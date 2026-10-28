@@ -4,7 +4,7 @@ A live, read-only kanban board for a BMad project's epics and stories, served on
 
 - **One file:** `scripts/board_server.py`, Python 3.11+, standard library only.
 - **Read-only:** it runs Sofia's `tickets.py status` / `next` and draws what they print. It never changes a ticket.
-- **Live:** the page refreshes itself every 30 seconds without losing what you have open.
+- **Live:** the page refreshes itself every 15 seconds without losing what you have open.
 
 Want to change how it works? See [GUIDE.md](GUIDE.md).
 
