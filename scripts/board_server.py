@@ -178,6 +178,8 @@ section.board { background: var(--area); border: 1px solid var(--line); border-r
 .band .etitle { font-size: 17px; font-weight: 600; }
 .band .done { color: var(--muted); }
 .band.toggle { display: flex; width: 100%; }
+.band[data-detail], .etitle[data-detail] { cursor: pointer; }
+.band[data-detail]:hover .etitle, .etitle[data-detail]:hover { text-decoration: underline; }
 .bar { width: 160px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--ready); }
 .cells { background: var(--area); }
@@ -626,13 +628,13 @@ def render(folder: Path, tickets: Path | None) -> str:
         if is_done:
             band = (
                 f'<button type="button" class="band toggle" data-toggle="epic-{esc(slug)}" aria-controls="tg-epic-{esc(slug)}" aria-expanded="false">'
-                f'<span class="caret" aria-hidden="true"></span><span class="ekicker">Epic {esc(eid)}</span><span class="etitle">{esc(title)}</span>'
+                f'<span class="caret" aria-hidden="true"></span><span class="ekicker">Epic {esc(eid)}</span><span class="etitle" data-detail="epic:{esc(slug)}">{esc(title)}</span>'
                 f'<span class="done">DONE{esc(drop_note)}</span><span class="bar"><span style="width:100%"></span></span></button>'
             )
         else:
             pct = round(100 * n_done / len(counted)) if counted else 0
             band = (
-                f'<div class="band"><span class="caret-space"></span><span class="ekicker">Epic {esc(eid)}</span><span class="etitle">{esc(title)}</span>'
+                f'<div class="band" data-detail="epic:{esc(slug)}"><span class="caret-space"></span><span class="ekicker">Epic {esc(eid)}</span><span class="etitle">{esc(title)}</span>'
                 f'<span class="done">{esc(f"{n_done}/{len(counted)} done{drop_note}")}</span><span class="bar"><span style="width:{pct}%"></span></span></div>'
             )
         cells = []

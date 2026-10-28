@@ -65,12 +65,12 @@ Build me a live kanban board of this project's epics and stories, served on loca
 - Mark a card READY when its ref is in `next`'s `ready_to_start` or `ready_to_refine`, with the same badge text as in Next Up ("READY · 1", "READY · refine 1"…).
 - A board card whose ref is in `next`'s `blocked` shows the same `why` line as its Blocked card in Next Up ("waits on 2.19"), so you can see on the board what it waits on. No other board card has a `why` line.
 - Within each column, order the cards as `next` lists them: `ready_to_start`, then `ready_to_refine`, then `in_progress`, then `blocked`, each in the order given. READY cards therefore sit at the top, matching Next Up. `next` leaves out finished tickets, so the Done column keeps build order (the order `status` gives them, which is the order the stories are listed in the epic's plan). Build order is a dependency sequence, not a priority ranking. Any card `next` does not list goes after the listed ones, in build order.
-- Every epic has a Details button at the right of its band (see Details panel).
+- Every epic has a Details button at the right of its band (see Details panel). Clicking an epic's title also opens its details, and so does clicking anywhere on the band of an epic that is not DONE; a DONE epic's band outside the title still folds it open and shut. The clickable parts show a pointer, and the title underlines on hover.
 - Footer: the key (the five column lines from the table, then "READY · n: Can start now; n is its place in Next Up", "★: Needs you", and the risk colour swatches), then "Longest chain still to build: 2.19 → … → 3.6 (9 stories)" from `longest_remaining_chain`, or "none".
 
 ## Details panel
 
-Clicking a ticket card (on the board, in Next Up, in the Backlog Folder) or an epic's Details button opens a panel down the right-hand side with what that item is, in plain words. The board stays where it is.
+Clicking a ticket card (on the board, in Next Up, in the Backlog Folder), an epic's title or band (as above), or its Details button opens a panel down the right-hand side with what that item is, in plain words. The board stays where it is.
 
 - Opening and closing: click a card or Details to open it; click another to switch; click the same one again, press Esc, click the ×, or click empty page space to close. Cards open from the keyboard with Enter or Space. The open item is marked on the board. The browser remembers which item is open, so a reload reopens it. The 30-second refresh leaves the panel open and refreshes its content.
 - The page asks the server for one item at a time: `GET /detail?kind=story&id=2.14`, `kind=epic&id=<epic slug>`, or `kind=backlog&id=<file name>`. The server answers with an HTML fragment from the Details template, reading only that item's files. An unknown kind or id, or a backlog id that is not a plain file name in the `backlog/` folder, gets the not-found fragment (status 404). If tickets.py fails, the fragment is the one error line.
@@ -245,6 +245,8 @@ section.board { background: var(--area); border: 1px solid var(--line); border-r
 .band .etitle { font-size: 17px; font-weight: 600; }
 .band .done { color: var(--muted); }
 .band.toggle { display: flex; width: 100%; }
+.band[data-detail], .etitle[data-detail] { cursor: pointer; }
+.band[data-detail]:hover .etitle, .etitle[data-detail]:hover { text-decoration: underline; }
 .bar { width: 160px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--ready); }
 .cells { background: var(--area); }
@@ -462,9 +464,9 @@ footer p { margin: 0; }
   <!-- one per epic, in the order of epics -->
   <div class="epic" data-epic="{{slug}}" data-num="{{id}}">
     <!-- an epic that is not DONE: -->
-    <div class="band"><span class="caret-space"></span><span class="ekicker">Epic {{id}}</span><span class="etitle">{{title}}</span><span class="done">{{n/m done}}</span><span class="bar"><span style="width:{{percent done}}%"></span></span></div>
+    <div class="band" data-detail="epic:{{slug}}"><span class="caret-space"></span><span class="ekicker">Epic {{id}}</span><span class="etitle">{{title}}</span><span class="done">{{n/m done}}</span><span class="bar"><span style="width:{{percent done}}%"></span></span></div>
     <!-- a DONE epic, instead of the band above: -->
-    <button type="button" class="band toggle" data-toggle="epic-{{slug}}" aria-controls="tg-epic-{{slug}}" aria-expanded="false"><span class="caret" aria-hidden="true"></span><span class="ekicker">Epic {{id}}</span><span class="etitle">{{title}}</span><span class="done">DONE</span><span class="bar"><span style="width:100%"></span></span></button>
+    <button type="button" class="band toggle" data-toggle="epic-{{slug}}" aria-controls="tg-epic-{{slug}}" aria-expanded="false"><span class="caret" aria-hidden="true"></span><span class="ekicker">Epic {{id}}</span><span class="etitle" data-detail="epic:{{slug}}">{{title}}</span><span class="done">DONE</span><span class="bar"><span style="width:100%"></span></span></button>
     <!-- every epic, right after its band: -->
     <button type="button" class="edetail" data-detail="epic:{{slug}}">Details</button>
     <div id="tg-epic-{{slug}}" class="ebody"><!-- add the hidden attribute on a DONE epic -->
@@ -558,6 +560,7 @@ If `status` itself fails, the page is the header (initiative name, date, "read a
 - Confirm every ticket card has exactly one Copy button whose `data-copy` is its ref and title (title alone in the Backlog Folder), and that the "Nothing can start now" card has none.
 - In a headless browser: open the Done column and Blocked, wait past one 30-second refresh (or call the refresh by changing the page's visibility), and confirm both are still open, the toggles still work, and the content was swapped in rather than the page reloaded (a value set on `window` before the refresh is still there after it).
 - Fetch `/detail` with curl for: a done story that has a build plan and a story file, a planned story with no file, an epic, and a Backlog Folder ticket. Confirm each section comes from the right file, the Waits on names are right, the file links point at files that exist, and no frontmatter key or state word appears (for example `baseline_revision`, `route:`, `status:`, `ready-for-dev`). Confirm an unknown id and a backlog id containing `/` or `..` get the not-found fragment with status 404.
+- In the headless browser: click an open epic's band and a DONE epic's title, and confirm each opens that epic's panel; click a DONE epic's band away from the title and confirm it folds instead.
 - In the headless browser: click a card and confirm the panel opens with its title and the card is marked; trigger a refresh and confirm the panel is still open, with the same content; press Esc and confirm it closes; click an epic's Details and confirm the epic opens; reload and confirm it reopens.
 - Take a screenshot at 1600px wide (for example headless Chrome) and look at it. With the pointer away from the cards and the panel closed, it should look the same as before the Copy button was added, apart from the Details buttons on the bands. Take a second screenshot with a story's panel open and look at it.
 - Tell me which parts today's data could not test (for example an empty column or an empty list), so I know what has only been checked with a count of 0.
