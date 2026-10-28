@@ -31,4 +31,4 @@ Install the BMad live kanban board in this project.
 - **Open**: http://127.0.0.1:8765
 - **Stop**: Ctrl+C
 
-🔗 **Repo + docs:** https://github.com/jheyworth/bmad-board-server
+
