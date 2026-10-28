@@ -14,13 +14,16 @@
 
 ## Install
 - **Needs**: a BMad project with Sofia's tickets, plus `uv`
-- **Paste into Claude Code** in your project:
+- **Step 1**: save the attached **board_server.py** to the root of your project folder
+- **Step 2**: paste this into Claude Code in your project:
 ```
 Install the BMad live kanban board in this project.
-1. Check .agents/skills/bmad-agent-po/scripts/tickets.py and an _bmad-output/initiative-* folder exist. If not, stop and tell me.
-2. Download https://raw.githubusercontent.com/jheyworth/bmad-board-server/main/scripts/board_server.py to scripts/board_server.py (not inside _bmad/).
-3. Run it with: uv run scripts/board_server.py --no-open --port 8799, curl the page to check it works, then stop it.
-4. Tell me the start command and address.
+1. Check board_server.py is in the project root. If not, stop and tell me.
+2. Check .agents/skills/bmad-agent-po/scripts/tickets.py and an _bmad-output/initiative-* folder exist. If not, stop and tell me.
+3. Create a scripts/ folder in the project root if there isn't one (not inside _bmad/). If scripts/board_server.py already exists, ask me before replacing it.
+4. Move board_server.py into scripts/. Don't change the file.
+5. Run it with: uv run scripts/board_server.py --no-open --port 8799, curl the page to check it works, then stop it.
+6. Tell me the start command and address.
 ```
 
 ## Run it
