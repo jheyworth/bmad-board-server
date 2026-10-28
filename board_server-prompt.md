@@ -43,17 +43,17 @@ Build me a live kanban board of this project's epics and stories, served on loca
 
 ## The board
 
-- Columns are BMad's own ticket states, so a word on the board means exactly what it means to Sofia. Each heading has a count and, where given, a second line in brackets:
+- Columns are BMad's own ticket states, so a word on the board means exactly what it means to Sofia. Each heading has a count and, under it, what has happened (Done: or, where work is under way, Now:) and what comes next (Next:). Each Next is the next column's Done or Now, so the headings read as one chain. The labels are bold, Done: purple (`--done`, GitHub's colour for merged or closed; green stays READY only), Now: blue (`--accent`), Next: amber (`--medium`); the text after them is plain, in the normal text colour:
 
-  | Column | Second line | Holds tickets whose `state` is | Footer key |
-  | --- | --- | --- | --- |
-  | Planned | (Epic List Only) | `planned`: only a line in the epic's `tickets.toml`; no story file and no build plan | Listed in the epic, not written up yet |
-  | Backlog | (Story or Build Plan Written) | `backlog`: has a story file or a build plan, not started | Written up (story or build plan), not started |
-  | In Progress | (Building) | `in-progress` | Being built |
-  | Review | (Diff · Triage · Fix · Sign-off) | `review`: review agents read the diff (every change the build made, whatever kind of file), findings are triaged, fixed and re-checked, then it is built and waits for the owner's sign-off | Diff reviewed, findings triaged and fixed, waiting for your sign-off |
-  | Done | none | `done` | Finished |
+  | Column | Done / Now | Next | Holds tickets whose `state` is | Footer key |
+  | --- | --- | --- | --- | --- |
+  | Planned | Done: Story Planned | Next: Story / Plan Written | `planned`: only a line in the epic's `tickets.toml`; no story file and no build plan | Story planned in the epic; no story or plan file yet |
+  | Backlog | Done: Story / Plan Written | Next: Plan Approval / Build | `backlog`: has a story file or a build plan, not started | Story or plan written; you approve the plan here, then the build writes code |
+  | In Progress | Now: Build Writing Code | Next: Code Review | `in-progress` | The build is writing code; its code review comes next |
+  | Review | Now: Code Review | Next: Sign-off | `review`: review agents read the diff (every change the build made, whatever kind of file), findings are triaged, fixed and re-checked, then it is built and waits for the owner's sign-off | Code review, then your sign-off |
+  | Done | Done: Signed Off | Next: Optional PR / Walkthrough | `done` | Signed off; a pull request or a walkthrough (bmad-walkthrough) can follow, both optional |
 
-  - Write the headings, second lines and key text exactly as given here. A ticket's column is its `state` from `status`, unchanged. Never work it out yourself.
+  - Write the headings, the Done / Now and Next lines, and the key text exactly as given here. A ticket's column is its `state` from `status`, unchanged. Never work it out yourself.
   - Whether a ticket can start is a separate thing, shown only by the READY badge and Next Up, both from `next`. A READY card can sit in Planned or Backlog.
 - The Done heading is a toggle. Done cards start hidden; each epic's Done cell then shows only "n done" (nothing when n is 0). Clicking the heading shows the Done cards in every epic at once; clicking again hides them.
 - One row per epic, in the order of `epics`. Its band shows "Epic n" (the epic's `id`), the epic's title, "n/m done" (or DONE when the epic's own `status` is `done`) and the progress bar (full on a DONE epic).
@@ -112,7 +112,7 @@ Use this template exactly. Copy the CSS and the script verbatim. Build the HTML 
 :root {
   --page: #0d1117; --area: #161b22; --card: #1c2128; --line: #30363d; --band: #21262d;
   --text: #e6edf3; --muted: #8b949e;
-  --high: #f85149; --medium: #d29922; --low: #6e7681; --ready: #3fb950; --accent: #58a6ff;
+  --high: #f85149; --medium: #d29922; --low: #6e7681; --ready: #3fb950; --accent: #58a6ff; --done: #a371f7;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -220,10 +220,15 @@ section.nextup { background: var(--area); border: 1px solid var(--line); border-
 .cols, .cells { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .cols { position: sticky; top: 0; z-index: 2; background: var(--area);
         border-bottom: 1px solid var(--line); }
-.colhead { text-align: center; padding: 12px 8px; }
+.colhead { text-align: center; padding: 14px 8px 12px; }
 .colhead + .colhead { border-left: 1px solid var(--line); }
 .colhead .label { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
-.colhead .sub { min-height: 1.4em; font-size: 13px; margin-top: 2px; }
+.colhead .sub { display: inline-block; text-align: left; min-height: 1.4em; font-size: 12px; margin-top: 10px; }
+.stage { display: block; color: var(--text); font-weight: 400; line-height: 1.6; }
+.stage b { display: inline-block; min-width: 3.2em; font-weight: 500; }
+.stage b.done { color: var(--done); }
+.stage b.now { color: var(--accent); }
+.stage b.next { color: var(--medium); }
 .colhead.toggle { text-align: center; padding: 12px 8px; width: auto; }
 .colhead.toggle .caret { margin-right: 10px; }
 .colhead.toggle:hover .label { color: var(--muted); }
@@ -446,11 +451,11 @@ footer p { margin: 0; }
 
 <section class="board" id="board">
   <div class="cols">
-    <div class="colhead"><p class="label">Planned · {{n}}</p><div class="sub">(Epic List Only)</div></div>
-    <div class="colhead"><p class="label">Backlog · {{n}}</p><div class="sub">(Story or Build Plan Written)</div></div>
-    <div class="colhead"><p class="label">In Progress · {{n}}</p><div class="sub">(Building)</div></div>
-    <div class="colhead"><p class="label">Review · {{n}}</p><div class="sub">(Diff · Triage · Fix · Sign-off)</div></div>
-    <button type="button" class="colhead toggle" data-toggle="done-column" data-class-target="board" data-class="done-open" aria-expanded="false"><p class="label"><span class="caret" aria-hidden="true"></span>Done · {{n}}</p><div class="sub"></div></button>
+    <div class="colhead"><p class="label">Planned · {{n}}</p><div class="sub"><span class="stage"><b class="done">Done:</b> Story Planned</span><span class="stage"><b class="next">Next:</b> Story / Plan Written</span></div></div>
+    <div class="colhead"><p class="label">Backlog · {{n}}</p><div class="sub"><span class="stage"><b class="done">Done:</b> Story / Plan Written</span><span class="stage"><b class="next">Next:</b> Plan Approval / Build</span></div></div>
+    <div class="colhead"><p class="label">In Progress · {{n}}</p><div class="sub"><span class="stage"><b class="now">Now:</b> Build Writing Code</span><span class="stage"><b class="next">Next:</b> Code Review</span></div></div>
+    <div class="colhead"><p class="label">Review · {{n}}</p><div class="sub"><span class="stage"><b class="now">Now:</b> Code Review</span><span class="stage"><b class="next">Next:</b> Sign-off</span></div></div>
+    <button type="button" class="colhead toggle" data-toggle="done-column" data-class-target="board" data-class="done-open" aria-expanded="false"><p class="label"><span class="caret" aria-hidden="true"></span>Done · {{n}}</p><div class="sub"><span class="stage"><b class="done">Done:</b> Signed Off</span><span class="stage"><b class="next">Next:</b> Optional PR / Walkthrough</span></div></button>
   </div>
 
   <!-- one per epic, in the order of epics -->
@@ -463,11 +468,11 @@ footer p { margin: 0; }
     <button type="button" class="edetail" data-detail="epic:{{slug}}">Details</button>
     <div id="tg-epic-{{slug}}" class="ebody"><!-- add the hidden attribute on a DONE epic -->
       <div class="cells">
-        <div class="cell" data-state="planned"><p class="label">Planned<br><span class="sub">(Epic List Only)</span></p>{{cards}}</div>
-        <div class="cell" data-state="backlog"><p class="label">Backlog<br><span class="sub">(Story or Build Plan Written)</span></p>{{cards}}</div>
-        <div class="cell" data-state="in-progress"><p class="label">In Progress<br><span class="sub">(Building)</span></p>{{cards}}</div>
-        <div class="cell" data-state="review"><p class="label">Review<br><span class="sub">(Diff · Triage · Fix · Sign-off)</span></p>{{cards}}</div>
-        <div class="cell" data-state="done"><p class="label">Done</p><div class="done-summary">{{k}} done</div>{{cards}}</div><!-- no done-summary when k is 0 -->
+        <div class="cell" data-state="planned"><p class="label">Planned<br><span class="sub"><span class="stage"><b class="done">Done:</b> Story Planned</span><span class="stage"><b class="next">Next:</b> Story / Plan Written</span></span></p>{{cards}}</div>
+        <div class="cell" data-state="backlog"><p class="label">Backlog<br><span class="sub"><span class="stage"><b class="done">Done:</b> Story / Plan Written</span><span class="stage"><b class="next">Next:</b> Plan Approval / Build</span></span></p>{{cards}}</div>
+        <div class="cell" data-state="in-progress"><p class="label">In Progress<br><span class="sub"><span class="stage"><b class="now">Now:</b> Build Writing Code</span><span class="stage"><b class="next">Next:</b> Code Review</span></span></p>{{cards}}</div>
+        <div class="cell" data-state="review"><p class="label">Review<br><span class="sub"><span class="stage"><b class="now">Now:</b> Code Review</span><span class="stage"><b class="next">Next:</b> Sign-off</span></span></p>{{cards}}</div>
+        <div class="cell" data-state="done"><p class="label">Done<br><span class="sub"><span class="stage"><b class="done">Done:</b> Signed Off</span><span class="stage"><b class="next">Next:</b> Optional PR / Walkthrough</span></span></p><div class="done-summary">{{k}} done</div>{{cards}}</div><!-- no done-summary when k is 0 -->
       </div>
       <!-- only when the epic has a ticket in a state outside the five columns: -->
       <div class="other">Other states: {{ref}} {{title}} ({{state}}), …</div>
@@ -477,11 +482,11 @@ footer p { margin: 0; }
 
 <footer>
   <div class="key">
-    <span><b>Planned</b>Listed in the epic, not written up yet</span>
-    <span><b>Backlog</b>Written up (story or build plan), not started</span>
-    <span><b>In Progress</b>Being built</span>
-    <span><b>Review</b>Diff reviewed, findings triaged and fixed, waiting for your sign-off</span>
-    <span><b>Done</b>Finished</span>
+    <span><b>Planned</b>Story planned in the epic; no story or plan file yet</span>
+    <span><b>Backlog</b>Story or plan written; you approve the plan here, then the build writes code</span>
+    <span><b>In Progress</b>The build is writing code; its code review comes next</span>
+    <span><b>Review</b>Code review, then your sign-off</span>
+    <span><b>Done</b>Signed off; a pull request or a walkthrough (bmad-walkthrough) can follow, both optional</span>
     <span><b>READY · n</b>Can start now; n is its place in Next Up</span>
     <span><b>★</b>Needs you</span>
     <span><b>Risk</b><i class="sw risk-high"></i>High<i class="sw risk-medium"></i>Medium<i class="sw risk-low"></i>Low</span>

@@ -46,7 +46,7 @@ TICKETS_REL = Path(".agents/skills/bmad-agent-po/scripts/tickets.py")
 CSS = r""":root {
   --page: #0d1117; --area: #161b22; --card: #1c2128; --line: #30363d; --band: #21262d;
   --text: #e6edf3; --muted: #8b949e;
-  --high: #f85149; --medium: #d29922; --low: #6e7681; --ready: #3fb950; --accent: #58a6ff;
+  --high: #f85149; --medium: #d29922; --low: #6e7681; --ready: #3fb950; --accent: #58a6ff; --done: #a371f7;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -154,10 +154,15 @@ section.nextup { background: var(--area); border: 1px solid var(--line); border-
 .cols, .cells { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .cols { position: sticky; top: 0; z-index: 2; background: var(--area);
         border-bottom: 1px solid var(--line); }
-.colhead { text-align: center; padding: 12px 8px; }
+.colhead { text-align: center; padding: 14px 8px 12px; }
 .colhead + .colhead { border-left: 1px solid var(--line); }
 .colhead .label { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
-.colhead .sub { min-height: 1.4em; font-size: 13px; margin-top: 2px; }
+.colhead .sub { display: inline-block; text-align: left; min-height: 1.4em; font-size: 12px; margin-top: 10px; }
+.stage { display: block; color: var(--text); font-weight: 400; line-height: 1.6; }
+.stage b { display: inline-block; min-width: 3.2em; font-weight: 500; }
+.stage b.done { color: var(--done); }
+.stage b.now { color: var(--accent); }
+.stage b.next { color: var(--medium); }
 .colhead.toggle { text-align: center; padding: 12px 8px; width: auto; }
 .colhead.toggle .caret { margin-right: 10px; }
 .colhead.toggle:hover .label { color: var(--muted); }
@@ -315,12 +320,13 @@ SCRIPT = r"""(function () {
 })();"""
 
 COLUMNS = [
-    ("planned", "Planned", "(Epic List Only)"),
-    ("backlog", "Backlog", "(Story or Build Plan Written)"),
-    ("in-progress", "In Progress", "(Building)"),
-    ("review", "Review", "(Diff · Triage · Fix · Sign-off)"),
-    ("done", "Done", ""),
+    ("planned", "Planned", '<span class="stage"><b class="done">Done:</b> Story Planned</span><span class="stage"><b class="next">Next:</b> Story / Plan Written</span>'),
+    ("backlog", "Backlog", '<span class="stage"><b class="done">Done:</b> Story / Plan Written</span><span class="stage"><b class="next">Next:</b> Plan Approval / Build</span>'),
+    ("in-progress", "In Progress", '<span class="stage"><b class="now">Now:</b> Build Writing Code</span><span class="stage"><b class="next">Next:</b> Code Review</span>'),
+    ("review", "Review", '<span class="stage"><b class="now">Now:</b> Code Review</span><span class="stage"><b class="next">Next:</b> Sign-off</span>'),
+    ("done", "Done", '<span class="stage"><b class="done">Done:</b> Signed Off</span><span class="stage"><b class="next">Next:</b> Optional PR / Walkthrough</span>'),
 ]
+SUB = {state: sub for state, _, sub in COLUMNS}
 STATES = [c[0] for c in COLUMNS]
 
 
@@ -636,7 +642,7 @@ def render(folder: Path, tickets: Path | None) -> str:
             cards = "".join(card(t, badge=badges.get(str(t.get("ref")), "")) for t in in_col)
             if s == "done":
                 summary = f'<div class="done-summary">{len(in_col)} done</div>' if in_col else ""
-                cells.append(f'        <div class="cell" data-state="done"><p class="label">Done</p>{summary}{cards}</div>')
+                cells.append(f'        <div class="cell" data-state="done"><p class="label">Done<br><span class="sub">{SUB["done"]}</span></p>{summary}{cards}</div>')
             else:
                 cells.append(f'        <div class="cell" data-state="{s}"><p class="label">{label}<br><span class="sub">{sub}</span></p>{cards}</div>')
         others = [t for t in counted if t.get("state") not in STATES]
@@ -659,11 +665,11 @@ def render(folder: Path, tickets: Path | None) -> str:
     board = (
         '<section class="board" id="board">\n'
         '  <div class="cols">\n'
-        f'    <div class="colhead"><p class="label">Planned · {col_counts["planned"]}</p><div class="sub">(Epic List Only)</div></div>\n'
-        f'    <div class="colhead"><p class="label">Backlog · {col_counts["backlog"]}</p><div class="sub">(Story or Build Plan Written)</div></div>\n'
-        f'    <div class="colhead"><p class="label">In Progress · {col_counts["in-progress"]}</p><div class="sub">(Building)</div></div>\n'
-        f'    <div class="colhead"><p class="label">Review · {col_counts["review"]}</p><div class="sub">(Diff · Triage · Fix · Sign-off)</div></div>\n'
-        f'    <button type="button" class="colhead toggle" data-toggle="done-column" data-class-target="board" data-class="done-open" aria-expanded="false"><p class="label"><span class="caret" aria-hidden="true"></span>Done · {col_counts["done"]}</p><div class="sub"></div></button>\n'
+        f'    <div class="colhead"><p class="label">Planned · {col_counts["planned"]}</p><div class="sub">{SUB["planned"]}</div></div>\n'
+        f'    <div class="colhead"><p class="label">Backlog · {col_counts["backlog"]}</p><div class="sub">{SUB["backlog"]}</div></div>\n'
+        f'    <div class="colhead"><p class="label">In Progress · {col_counts["in-progress"]}</p><div class="sub">{SUB["in-progress"]}</div></div>\n'
+        f'    <div class="colhead"><p class="label">Review · {col_counts["review"]}</p><div class="sub">{SUB["review"]}</div></div>\n'
+        f'    <button type="button" class="colhead toggle" data-toggle="done-column" data-class-target="board" data-class="done-open" aria-expanded="false"><p class="label"><span class="caret" aria-hidden="true"></span>Done · {col_counts["done"]}</p><div class="sub">{SUB["done"]}</div></button>\n'
         "  </div>\n"
         + "\n".join(epic_blocks)
         + "\n</section>\n"
@@ -674,11 +680,11 @@ def render(folder: Path, tickets: Path | None) -> str:
     footer = (
         "<footer>\n"
         '  <div class="key">\n'
-        "    <span><b>Planned</b>Listed in the epic, not written up yet</span>\n"
-        "    <span><b>Backlog</b>Written up (story or build plan), not started</span>\n"
-        "    <span><b>In Progress</b>Being built</span>\n"
-        "    <span><b>Review</b>Diff reviewed, findings triaged and fixed, waiting for your sign-off</span>\n"
-        "    <span><b>Done</b>Finished</span>\n"
+        "    <span><b>Planned</b>Story planned in the epic; no story or plan file yet</span>\n"
+        "    <span><b>Backlog</b>Story or plan written; you approve the plan here, then the build writes code</span>\n"
+        "    <span><b>In Progress</b>The build is writing code; its code review comes next</span>\n"
+        "    <span><b>Review</b>Code review, then your sign-off</span>\n"
+        "    <span><b>Done</b>Signed off; a pull request or a walkthrough (bmad-walkthrough) can follow, both optional</span>\n"
         "    <span><b>READY · n</b>Can start now; n is its place in Next Up</span>\n"
         "    <span><b>★</b>Needs you</span>\n"
         '    <span><b>Risk</b><i class="sw risk-high"></i>High<i class="sw risk-medium"></i>Medium<i class="sw risk-low"></i>Low</span>\n'
