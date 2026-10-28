@@ -9,7 +9,9 @@
     uv run scripts/board_server.py --stop [--port 8765]
 
 The first form runs in the foreground until Ctrl+C. --start runs the board as its own process, apart from
-the terminal or Claude Code session that started it, and returns. --stop stops a board on that port.
+the terminal or Claude Code session that started it, and returns. Without --port it takes the first free
+port from 8765 to 8775, or opens this project's board if one is already running there. --stop stops this
+project's board, searching the same ports unless --port is given. Another project's board is never touched.
 Every page load runs `tickets.py status`, `tickets.py next` and `tickets.py next backlog` and draws
 what they print. `GET /detail?kind=story|epic|backlog&id=...` answers one item's details panel. It never
 changes a ticket.
@@ -22,6 +24,7 @@ import errno
 import html
 import json
 import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -1024,13 +1027,16 @@ def make_handler(folder: Path, tickets: Path | None):
             self.send_response(code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
-            self.send_header(BOARD_HEADER, "1")
+            self.send_header(BOARD_HEADER, BOARD_ID)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
             url = urlparse(self.path)
+            if url.path == BOARD_PATH:  # --start and --stop ask here which project's board this is
+                self.send_body(200, b"board")
+                return
             if url.path == "/detail":
                 try:
                     code, frag = render_detail(folder, tickets, url.query)
@@ -1070,61 +1076,108 @@ def make_handler(folder: Path, tickets: Path | None):
 STOP_PATH = "/__stop"
 STOP_HEADER = "X-Board-Stop"
 STOP_REPLY = b"board stopping"
+BOARD_PATH = "/__board"
 BOARD_HEADER = "X-Board-Server"
+BOARD_ID = quote(str(REPO_ROOT))  # each response says which project's board it is
+DEFAULT_PORT = 8765
+PORTS = range(DEFAULT_PORT, DEFAULT_PORT + 11)  # where --start looks for a free port and --stop looks for the board
 
 
 def probe(port: int) -> str | None:
-    """What answers on the port: "board", "other", or None for nothing."""
+    """What answers on the port: "mine" (this project's board), "board" (another project's),
+    "other", or None for nothing."""
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as r:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}{BOARD_PATH}", timeout=3) as r:
             headers = r.headers
     except urllib.error.HTTPError as e:
         headers = e.headers
     except (OSError, urllib.error.URLError):
         return None
-    return "board" if headers.get(BOARD_HEADER) == "1" else "other"
+    found = headers.get(BOARD_HEADER)
+    if found == BOARD_ID:
+        return "mine"
+    return "board" if found else "other"
 
 
-def answers(port: int) -> bool:
-    return probe(port) is not None
+def probe_all(ports) -> dict[int, str | None]:
+    with ThreadPoolExecutor(max_workers=len(ports)) as ex:
+        return dict(zip(ports, ex.map(probe, ports)))
 
 
-def stop(port: int) -> int:
+def free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # as the server does, so a just-stopped port counts as free
+        try:
+            s.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def taken(port: int, found: str | None) -> str:
+    if found == "board":
+        return f"Port {port} has a board for another project."
+    return f"Port {port} is in use by something else."
+
+
+def stop_one(port: int) -> int:
     req = urllib.request.Request(f"http://127.0.0.1:{port}{STOP_PATH}", data=b"", method="POST", headers={STOP_HEADER: "1"})
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             reply = r.read()
-    except urllib.error.HTTPError:
-        reply = b""
     except (OSError, urllib.error.URLError):
-        print(f"No board running on port {port}.")
-        return 0
-    if reply != STOP_REPLY:
-        print(f"Port {port} is in use by something that is not the board. Left it alone.", file=sys.stderr)
-        return 1
-    for _ in range(50):
-        if not answers(port):
-            print(f"Board on port {port} stopped.")
-            return 0
-        time.sleep(0.1)
+        reply = b""
+    if reply == STOP_REPLY:
+        for _ in range(50):
+            if probe(port) is None:
+                print(f"Board on port {port} stopped.")
+                return 0
+            time.sleep(0.1)
     print(f"Asked the board on port {port} to stop, but it still answers.", file=sys.stderr)
     return 1
 
 
+def stop(port: int | None) -> int:
+    if port is not None:
+        found = probe(port)
+        if found is None:
+            print(f"No board running on port {port}.")
+            return 0
+        if found != "mine":
+            print(f"{taken(port, found)} Left it alone.", file=sys.stderr)
+            return 1
+        return stop_one(port)
+    mine = [p for p, found in probe_all(PORTS).items() if found == "mine"]
+    if not mine:
+        print(f"No board for this project running on ports {PORTS[0]}-{PORTS[-1]}.")
+        return 0
+    return max(stop_one(p) for p in mine)
+
+
 def start(args: argparse.Namespace, folder: Path) -> int:
-    url = f"http://127.0.0.1:{args.port}/"
-    stop_cmd = "uv run scripts/board_server.py --stop" + ("" if args.port == 8765 else f" --port {args.port}")
-    found = probe(args.port)
-    if found == "board":
+    stop_cmd = "uv run scripts/board_server.py --stop" + ("" if args.port is None else f" --port {args.port}")
+    ports = PORTS if args.port is None else [args.port]
+    seen = probe_all(ports)
+    running = [p for p in ports if seen[p] == "mine"]
+    if running:
+        url = f"http://127.0.0.1:{running[0]}/"
         print(f"A board is already running at {url}\nStop it with: {stop_cmd}")
         if not args.no_open:
             webbrowser.open(url)
         return 0
-    if found == "other":
-        print(f"Port {args.port} is already in use by something else. Pick another with --port.", file=sys.stderr)
+    port = next((p for p in ports if seen[p] is None and free(p)), None)
+    if port is None:
+        if args.port is not None:
+            print(f"{taken(args.port, seen[args.port])} Pick another with --port.", file=sys.stderr)
+        else:
+            print(f"No free port between {PORTS[0]} and {PORTS[-1]}. Pick one with --port.", file=sys.stderr)
         return 1
-    log = Path(tempfile.gettempdir()) / f"bmad-board-{args.port}.log"
-    cmd = [sys.executable, str(Path(__file__).resolve()), "--port", str(args.port), "--no-open", "--folder", str(folder)]
+    skipped = [p for p in ports if p < port]
+    if skipped:
+        print(" ".join(taken(p, seen[p]) for p in skipped) + f" Using {port}.")
+    url = f"http://127.0.0.1:{port}/"
+    log = Path(tempfile.gettempdir()) / f"bmad-board-{port}.log"
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--port", str(port), "--no-open", "--folder", str(folder)]
     detach = ({"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
               if sys.platform == "win32" else {"start_new_session": True})
     with open(log, "w") as out:
@@ -1133,7 +1186,7 @@ def start(args: argparse.Namespace, folder: Path) -> int:
         if child.poll() is not None:
             print(log.read_text().strip() or f"The board exited before it started (code {child.returncode}).", file=sys.stderr)
             return 1
-        if probe(args.port) == "board":
+        if probe(port) == "mine":
             break
         time.sleep(0.1)
     else:
@@ -1149,8 +1202,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Live, read-only kanban board of this project's BMad tickets.")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--start", action="store_true", help="run the board as its own process and return")
-    mode.add_argument("--stop", action="store_true", help="stop the board on --port")
-    ap.add_argument("--port", type=int, default=8765, help="port on 127.0.0.1 (default 8765)")
+    mode.add_argument("--stop", action="store_true", help="stop this project's board")
+    ap.add_argument("--port", type=int, help=f"port on 127.0.0.1 (default {DEFAULT_PORT}; --start and --stop "
+                                             f"search {PORTS[0]}-{PORTS[-1]} when it is not given)")
     ap.add_argument("--no-open", action="store_true", help="do not open the browser")
     ap.add_argument("--folder", help="initiative folder (default: the initiative-* folder under _bmad-output/)")
     args = ap.parse_args()
@@ -1160,6 +1214,8 @@ def main() -> int:
     folder = find_folder(args.folder)
     if args.start:
         return start(args, folder)
+    if args.port is None:
+        args.port = DEFAULT_PORT
     tickets = find_tickets_py()
     if tickets is None:
         print("Warning: tickets.py not found; the page will say so.", file=sys.stderr)

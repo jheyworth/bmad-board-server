@@ -21,7 +21,7 @@ uv run scripts/board_server.py --stop --port 9000
 uv run scripts/board_server.py --start --folder initiative-my-project
 ```
 
-A board started with `--start` keeps running until `--stop`, even after the terminal or Claude Code session that started it ends. Without `--start`, the board runs inside that terminal and Ctrl+C stops it.
+A board started with `--start` keeps running until `--stop`, even after the terminal or Claude Code session that started it ends. If 8765 is taken, `--start` uses the next free port up to 8775 and says which; `--stop` finds it again by itself and never touches another project's board. Without `--start`, the board runs inside that terminal and Ctrl+C stops it.
 
 What's on the page:
 
@@ -55,7 +55,7 @@ Epic titles come from `tickets/tickets.toml` in the initiative folder. The detai
    - **What I want** / **Where the status comes from**: the overall behaviour and data sources.
    - **Header**, **Next Up**, **The board**, **Details panel**: what each part of the page shows, in plain English.
    - **Template**: the exact CSS, JavaScript and HTML. Claude Code copies these verbatim, so change the look here.
-   - **How to build it**: technical rules (one file, standard library, `--port` / `--no-open`).
+   - **How to build it**: technical rules (one file, standard library, `--start` / `--stop`, ports, `--no-open`).
    - **Check it before you tell me it is done**: the tests Claude Code runs before handing it back.
 2. Paste everything below the `---` line into Claude Code in your BMad project.
 3. Claude Code writes `scripts/board_server.py` and runs the checks.
@@ -81,6 +81,7 @@ Good for quick fixes. Where things live in `scripts/board_server.py`:
 | One ticket card | `card()` |
 | Details panel answers | `detail_story()`, `detail_epic()`, `detail_backlog()` |
 | Server, flags, port handling | `make_handler()`, `main()` |
+| Start, stop, finding a free port | `start()`, `stop()`, `probe()` |
 
 After editing:
 

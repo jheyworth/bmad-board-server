@@ -57,14 +57,16 @@ uv run scripts/board_server.py --start   # opens http://127.0.0.1:8765/ and retu
 uv run scripts/board_server.py --stop
 ```
 
-A board started with `--start` runs on its own: it keeps going after you close the terminal or the Claude Code session that started it, until you run `--stop`. If the board is already running, `--start` just opens it. If you use another port, give `--stop` the same `--port`.
+A board started with `--start` runs on its own: it keeps going after you close the terminal or the Claude Code session that started it, until you run `--stop`. If the board is already running, `--start` just opens it.
+
+If port 8765 is taken, `--start` uses the next free port up to 8775 and tells you which. `--stop` finds the board on those ports by itself. Each project's board knows which project it belongs to, so two projects can run boards side by side and neither command touches the other's. If you choose a port with `--port`, give `--stop` the same `--port`.
 
 Plain `uv run scripts/board_server.py` (without `--start`) runs the board inside that terminal instead: **Ctrl+C** stops it, and closing the terminal or Claude Code session stops it too.
 
 | Flag | What it does |
 | --- | --- |
 | `--start` | Run the board on its own and return |
-| `--stop` | Stop the board on `--port` |
-| `--port 8765` | Port to listen on (127.0.0.1 only) |
+| `--stop` | Stop this project's board |
+| `--port 8765` | Use exactly this port (127.0.0.1 only); without it, `--start` and `--stop` use the first free port from 8765 to 8775 |
 | `--no-open` | Don't open the browser |
 | `--folder <initiative folder>` | Pick the initiative when there is more than one |

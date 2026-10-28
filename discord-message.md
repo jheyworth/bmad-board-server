@@ -37,5 +37,6 @@ Stop the BMad board: run uv run scripts/board_server.py --stop from the project 
 ```
 - **Or in a terminal**: the same two commands, `--start` and `--stop`
 - **Keeps running** until you stop it, even after Claude Code closes
+- **Port busy?** It picks the next free one and tells you; stop still finds it
 
 
