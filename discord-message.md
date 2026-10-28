@@ -1,4 +1,4 @@
-## 📋 BMad Live Kanban Board
+## 📋 V7 Local Kanban Board with Live Updates
 
 **What:** a live board of your BMad epics and stories, in your browser.
 - **Read-only**: never changes a ticket
