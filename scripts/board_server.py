@@ -162,7 +162,7 @@ section.nextup { background: var(--area); border: 1px solid var(--line); border-
 .stage b { display: inline-block; min-width: 3.2em; font-weight: 500; }
 .stage b.done { color: var(--done); }
 .stage b.now { color: var(--accent); }
-.stage b.next { color: var(--medium); }
+.stage b.next { color: var(--muted); }
 .colhead.toggle { text-align: center; padding: 12px 8px; width: auto; }
 .colhead.toggle .caret { margin-right: 10px; }
 .colhead.toggle:hover .label { color: var(--muted); }
@@ -559,7 +559,10 @@ def render(folder: Path, tickets: Path | None) -> str:
     # badges and order, all from next
     badges: dict[str, str] = {}
     rank: dict[str, int] = {}
+    waits: dict[str, str] = {}  # a Blocked card's why line, repeated on its board card
     if nxt is not None:
+        for t in nxt.get("blocked") or []:
+            waits[str(t.get("ref"))] = why_blocked(t, epic_num, epic_title)
         for i, t in enumerate(nxt.get("ready_to_start") or [], 1):
             badges.setdefault(str(t.get("ref")), f"READY · {i}")
         for i, t in enumerate(nxt.get("ready_to_refine") or [], 1):
@@ -597,14 +600,14 @@ def render(folder: Path, tickets: Path | None) -> str:
         blocked = nxt.get("blocked") or []
         if blocked:
             cards = [card(t, why=why_blocked(t, epic_num, epic_title)) for t in blocked]
-            nu.append("  " + toggle_row("blocked", "Blocked", "(Can't Start Yet)", cards, nothing_can_start).replace("\n", "\n  "))
+            nu.append("  " + toggle_row("blocked", "Blocked", "(Waiting on Blocking Stories or Epics)", cards, nothing_can_start).replace("\n", "\n  "))
     if back is None:
-        nu.append(f'  <div class="trow"><span class="label">Backlog Folder</span><span class="sub">(Parking Lot · No Epic Yet)</span><p class="sub">The Backlog Folder could not be read. {esc(back_err)}</p></div>')
+        nu.append(f'  <div class="trow"><span class="label">Backlog Folder</span><span class="sub">(No Initiative or Epic · Next: Refine)</span><p class="sub">The Backlog Folder could not be read. {esc(back_err)}</p></div>')
     else:
         rows = (back.get("ready_to_start") or []) + (back.get("ready_to_refine") or [])
         if rows:
             cards = [card(t, show_ref=False) for t in rows]
-            nu.append("  " + toggle_row("backlog-folder", "Backlog Folder", "(Parking Lot · No Epic Yet)", cards, False).replace("\n", "\n  "))
+            nu.append("  " + toggle_row("backlog-folder", "Backlog Folder", "(No Initiative or Epic · Next: Refine)", cards, False).replace("\n", "\n  "))
     nu.append("</section>")
 
     # board
@@ -639,7 +642,8 @@ def render(folder: Path, tickets: Path | None) -> str:
             if s != "done":
                 build = {id(t): i for i, t in enumerate(in_col)}
                 in_col.sort(key=lambda t: (rank.get(str(t.get("ref")), len(rank) + build[id(t)]),))
-            cards = "".join(card(t, badge=badges.get(str(t.get("ref")), "")) for t in in_col)
+            cards = "".join(card(t, badge=badges.get(str(t.get("ref")), ""),
+                                 why="" if s == "done" else waits.get(str(t.get("ref")), "")) for t in in_col)
             if s == "done":
                 summary = f'<div class="done-summary">{len(in_col)} done</div>' if in_col else ""
                 cells.append(f'        <div class="cell" data-state="done"><p class="label">Done<br><span class="sub">{SUB["done"]}</span></p>{summary}{cards}</div>')

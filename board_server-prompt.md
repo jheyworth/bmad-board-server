@@ -36,14 +36,14 @@ Build me a live kanban board of this project's epics and stories, served on loca
 - "Then": the rest of `ready_to_start`, in the order given, as cards with "READY · 2", "READY · 3"…, across all epics.
 - "Needs refining first": `ready_to_refine`, in order, as cards with "READY · refine 1", "READY · refine 2"…, when not empty.
 - "In Progress": `in_progress`, when not empty, as cards with the assignee (if any) on the `why` line.
-- "Blocked", second line "(Can't Start Yet)": `blocked`, in order, as cards with what each waits on on the `why` line, in plain words: "waits on 2.19" from `waiting_on` (an entry without a dot is in the same epic, so show it with the epic's number, e.g. 19 in epic 2 → 2.19; an entry that names a whole epic by slug, e.g. `epic-batch-review`, shows as "epic 2" followed by the epic's title in brackets), or the `blocked_reason`, or "question to settle: …" from `unknown`; several are joined with " · ". This is BMad's word for these tickets. Shown only when not empty. Collapsed by default, with a count.
-- "Backlog Folder", second line "(Parking Lot · No Epic Yet)": `ready_to_start` then `ready_to_refine` from `next backlog`, as cards without a ref (these tickets have none), when not empty. This is BMad's `backlog/` folder of tickets that belong to no epic; it is never the Backlog column. Collapsed by default, with a count. If `next backlog` fails, show the one-line message from the template.
+- "Blocked", second line "(Waiting on Blocking Stories or Epics)": `blocked`, in order, as cards with what each waits on on the `why` line, in plain words: "waits on 2.19" from `waiting_on` (an entry without a dot is in the same epic, so show it with the epic's number, e.g. 19 in epic 2 → 2.19; an entry that names a whole epic by slug, e.g. `epic-batch-review`, shows as "epic 2" followed by the epic's title in brackets), or the `blocked_reason`, or "question to settle: …" from `unknown`; several are joined with " · ". This is BMad's word for these tickets. Shown only when not empty. Collapsed by default, with a count.
+- "Backlog Folder", second line "(No Initiative or Epic · Next: Refine)": `ready_to_start` then `ready_to_refine` from `next backlog`, as cards without a ref (these tickets have none), when not empty. This is BMad's `backlog/` folder, beside the initiative folders: standalone tickets that belong to no initiative and no epic, each refined before it is built. It is never the Backlog column. Collapsed by default, with a count. If `next backlog` fails, show the one-line message from the template.
 - If `next` reports a non-empty `unpinned_after`, `undeclared_after`, `order_conflict` or `problems`, show the warning line "The ticket tree needs fixing; ask Sofia." The board still draws.
 - If `next` fails, show the error line in place of Start next to Blocked; the Backlog Folder still shows.
 
 ## The board
 
-- Columns are BMad's own ticket states, so a word on the board means exactly what it means to Sofia. Each heading has a count and, under it, what has happened (Done: or, where work is under way, Now:) and what comes next (Next:). Each Next is the next column's Done or Now, so the headings read as one chain. The labels are bold, Done: purple (`--done`, GitHub's colour for merged or closed; green stays READY only), Now: blue (`--accent`), Next: amber (`--medium`); the text after them is plain, in the normal text colour:
+- Columns are BMad's own ticket states, so a word on the board means exactly what it means to Sofia. Each heading has a count and, under it, what has happened (Done: or, where work is under way, Now:) and what comes next (Next:). Each Next is the next column's Done or Now, so the headings read as one chain. The labels are bold, Done: purple (`--done`, GitHub's colour for merged or closed; green stays READY only), Now: blue (`--accent`), Next: grey (`--muted`; amber stays medium risk only); the text after them is plain, in the normal text colour:
 
   | Column | Done / Now | Next | Holds tickets whose `state` is | Footer key |
   | --- | --- | --- | --- | --- |
@@ -63,6 +63,7 @@ Build me a live kanban board of this project's epics and stories, served on loca
 - One card per ticket: its `ref` (for example 2.9), its title, the risk class from its `risk` (high, medium or low; none if missing), "spike" for spikes, and ★ when `hitl` is true. Cards show no state text: the column says it.
 - Every ticket card, on the board and in Next Up, has a Copy button that puts the ref and title on the clipboard ("2.14 The opening read is checked by a program"), ready to paste into Sofia or a build. A Backlog Folder card copies its title alone. The "Nothing can start now" card has no Copy button. The button shows when the pointer is over the card or the card has keyboard focus, and always on touch screens.
 - Mark a card READY when its ref is in `next`'s `ready_to_start` or `ready_to_refine`, with the same badge text as in Next Up ("READY · 1", "READY · refine 1"…).
+- A board card whose ref is in `next`'s `blocked` shows the same `why` line as its Blocked card in Next Up ("waits on 2.19"), so you can see on the board what it waits on. No other board card has a `why` line.
 - Within each column, order the cards as `next` lists them: `ready_to_start`, then `ready_to_refine`, then `in_progress`, then `blocked`, each in the order given. READY cards therefore sit at the top, matching Next Up. `next` leaves out finished tickets, so the Done column keeps build order (the order `status` gives them, which is the order the stories are listed in the epic's plan). Build order is a dependency sequence, not a priority ranking. Any card `next` does not list goes after the listed ones, in build order.
 - Every epic has a Details button at the right of its band (see Details panel).
 - Footer: the key (the five column lines from the table, then "READY · n: Can start now; n is its place in Next Up", "★: Needs you", and the risk colour swatches), then "Longest chain still to build: 2.19 → … → 3.6 (9 stories)" from `longest_remaining_chain`, or "none".
@@ -228,7 +229,7 @@ section.nextup { background: var(--area); border: 1px solid var(--line); border-
 .stage b { display: inline-block; min-width: 3.2em; font-weight: 500; }
 .stage b.done { color: var(--done); }
 .stage b.now { color: var(--accent); }
-.stage b.next { color: var(--medium); }
+.stage b.next { color: var(--muted); }
 .colhead.toggle { text-align: center; padding: 12px 8px; width: auto; }
 .colhead.toggle .caret { margin-right: 10px; }
 .colhead.toggle:hover .label { color: var(--muted); }
@@ -412,7 +413,7 @@ footer p { margin: 0; }
 ```html
 <div class="trow">
   <button type="button" class="toggle" data-toggle="{{blocked|backlog-folder}}" aria-controls="tg-{{same key}}" aria-expanded="false">
-    <span class="caret" aria-hidden="true"></span><span class="label">{{Blocked|Backlog Folder}} · {{count}}</span><span class="sub">{{(Can't Start Yet)|(Parking Lot · No Epic Yet)}}</span>
+    <span class="caret" aria-hidden="true"></span><span class="label">{{Blocked|Backlog Folder}} · {{count}}</span><span class="sub">{{(Waiting on Blocking Stories or Epics)|(No Initiative or Epic · Next: Refine)}}</span>
   </button>
   <div id="tg-{{same key}}" hidden><div class="cardgrid">{{cards}}</div></div>
 </div>
@@ -446,7 +447,7 @@ footer p { margin: 0; }
   {{toggle row: Blocked}}
   {{toggle row: Backlog Folder}}
   <!-- only when next backlog failed, in place of the Backlog Folder toggle row: -->
-  <div class="trow"><span class="label">Backlog Folder</span><span class="sub">(Parking Lot · No Epic Yet)</span><p class="sub">The Backlog Folder could not be read. {{error}}</p></div>
+  <div class="trow"><span class="label">Backlog Folder</span><span class="sub">(No Initiative or Epic · Next: Refine)</span><p class="sub">The Backlog Folder could not be read. {{error}}</p></div>
 </section>
 
 <section class="board" id="board">
@@ -549,6 +550,7 @@ If `status` itself fails, the page is the header (initiative name, date, "read a
 - Start it with `--no-open` on a spare port, fetch the page with curl, and confirm the header counts equal the column counts, and that each equals the `counts` from tickets.py for that state (Planned = `planned`, Backlog = `backlog`, In Progress = `in-progress`, Review = `review`, Done = `done`).
 - Confirm the "Start next" ticket is the first row of `ready_to_start` from `tickets.py next`, and that the "Then" list has the same refs in the same order.
 - Confirm every READY card's ref is in `ready_to_start` or `ready_to_refine`, and no other card is marked READY.
+- Confirm every board card whose ref is in `blocked` has the same `why` line as its Blocked card in Next Up, and no other board card has one.
 - Confirm every card sits in the column of its own `state` from `status`, and that the Backlog Folder lists what `next backlog` gives.
 - Confirm the cards in each column (except Done) appear in the same order as `next` lists them.
 - Confirm on first load: every DONE epic's cards are hidden and every other epic's are shown; the Done column shows "n done" per epic; Blocked and Backlog Folder are closed (unless nothing can start).
