@@ -23,14 +23,19 @@ Install the BMad live kanban board in this project.
 3. Create a scripts/ folder in the project root if there isn't one (not inside _bmad/). If scripts/board_server.py already exists, ask me before replacing it.
 4. Move board_server.py into scripts/. Don't change the file.
 5. Run it with: uv run scripts/board_server.py --no-open --port 8799, curl the page to check it works, then stop it.
-6. Tell me the start command and address.
+6. Tell me the start and stop commands (--start and --stop) and the address.
 ```
 
 ## Run it
 - **Start**: paste this into Claude Code in your project:
 ```
-Start the BMad live kanban board: from the project root, run uv run scripts/board_server.py in the background. If port 8765 is in use, add --port 8766. Once it prints its address, give me the link and leave it running.
+Start the BMad board: run uv run scripts/board_server.py --start from the project root and give me the link.
 ```
-- **Stop**: ask Claude Code to stop the board
+- **Stop**: paste this:
+```
+Stop the BMad board: run uv run scripts/board_server.py --stop from the project root.
+```
+- **Or in a terminal**: the same two commands, `--start` and `--stop`
+- **Keeps running** until you stop it, even after Claude Code closes
 
 

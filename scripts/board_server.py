@@ -5,7 +5,11 @@
 """Live kanban board of this project's BMad initiative, served on localhost. Read-only.
 
     uv run scripts/board_server.py [--port 8765] [--no-open] [--folder <initiative folder>]
+    uv run scripts/board_server.py --start [--port 8765] [--no-open] [--folder <initiative folder>]
+    uv run scripts/board_server.py --stop [--port 8765]
 
+The first form runs in the foreground until Ctrl+C. --start runs the board as its own process, apart from
+the terminal or Claude Code session that started it, and returns. --stop stops a board on that port.
 Every page load runs `tickets.py status`, `tickets.py next` and `tickets.py next backlog` and draws
 what they print. `GET /detail?kind=story|epic|backlog&id=...` answers one item's details panel. It never
 changes a ticket.
@@ -20,7 +24,12 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
+import threading
+import time
 import tomllib
+import urllib.error
+import urllib.request
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -1015,6 +1024,7 @@ def make_handler(folder: Path, tickets: Path | None):
             self.send_response(code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            self.send_header(BOARD_HEADER, "1")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -1043,20 +1053,111 @@ def make_handler(folder: Path, tickets: Path | None):
                 code = 200
             self.send_body(code, body)
 
+        def do_POST(self):
+            # --stop sends this. A web page cannot: the custom header needs a CORS preflight, which is refused.
+            if urlparse(self.path).path != STOP_PATH or self.headers.get(STOP_HEADER) != "1":
+                self.send_error(404)
+                return
+            self.send_body(200, STOP_REPLY)
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+
         def log_message(self, fmt, *args):
             pass
 
     return Handler
 
 
+STOP_PATH = "/__stop"
+STOP_HEADER = "X-Board-Stop"
+STOP_REPLY = b"board stopping"
+BOARD_HEADER = "X-Board-Server"
+
+
+def probe(port: int) -> str | None:
+    """What answers on the port: "board", "other", or None for nothing."""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10) as r:
+            headers = r.headers
+    except urllib.error.HTTPError as e:
+        headers = e.headers
+    except (OSError, urllib.error.URLError):
+        return None
+    return "board" if headers.get(BOARD_HEADER) == "1" else "other"
+
+
+def answers(port: int) -> bool:
+    return probe(port) is not None
+
+
+def stop(port: int) -> int:
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{STOP_PATH}", data=b"", method="POST", headers={STOP_HEADER: "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            reply = r.read()
+    except urllib.error.HTTPError:
+        reply = b""
+    except (OSError, urllib.error.URLError):
+        print(f"No board running on port {port}.")
+        return 0
+    if reply != STOP_REPLY:
+        print(f"Port {port} is in use by something that is not the board. Left it alone.", file=sys.stderr)
+        return 1
+    for _ in range(50):
+        if not answers(port):
+            print(f"Board on port {port} stopped.")
+            return 0
+        time.sleep(0.1)
+    print(f"Asked the board on port {port} to stop, but it still answers.", file=sys.stderr)
+    return 1
+
+
+def start(args: argparse.Namespace, folder: Path) -> int:
+    url = f"http://127.0.0.1:{args.port}/"
+    stop_cmd = "uv run scripts/board_server.py --stop" + ("" if args.port == 8765 else f" --port {args.port}")
+    found = probe(args.port)
+    if found == "board":
+        print(f"A board is already running at {url}\nStop it with: {stop_cmd}")
+        return 0
+    if found == "other":
+        print(f"Port {args.port} is already in use by something else. Pick another with --port.", file=sys.stderr)
+        return 1
+    log = Path(tempfile.gettempdir()) / f"bmad-board-{args.port}.log"
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--port", str(args.port), "--no-open", "--folder", str(folder)]
+    detach = ({"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+              if sys.platform == "win32" else {"start_new_session": True})
+    with open(log, "w") as out:
+        child = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, **detach)
+    for _ in range(100):
+        if child.poll() is not None:
+            print(log.read_text().strip() or f"The board exited before it started (code {child.returncode}).", file=sys.stderr)
+            return 1
+        if probe(args.port) == "board":
+            break
+        time.sleep(0.1)
+    else:
+        print(f"The board did not answer within 10 seconds. Its output is in {log}", file=sys.stderr)
+        return 1
+    print(f"Board for {initiative_name(folder)} running at {url}\nStop it with: {stop_cmd}")
+    if not args.no_open:
+        webbrowser.open(url)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Live, read-only kanban board of this project's BMad tickets.")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--start", action="store_true", help="run the board as its own process and return")
+    mode.add_argument("--stop", action="store_true", help="stop the board on --port")
     ap.add_argument("--port", type=int, default=8765, help="port on 127.0.0.1 (default 8765)")
     ap.add_argument("--no-open", action="store_true", help="do not open the browser")
     ap.add_argument("--folder", help="initiative folder (default: the initiative-* folder under _bmad-output/)")
     args = ap.parse_args()
 
+    if args.stop:
+        return stop(args.port)
     folder = find_folder(args.folder)
+    if args.start:
+        return start(args, folder)
     tickets = find_tickets_py()
     if tickets is None:
         print("Warning: tickets.py not found; the page will say so.", file=sys.stderr)
@@ -1074,6 +1175,7 @@ def main() -> int:
         webbrowser.open(url)
     try:
         server.serve_forever()
+        print("Stopped.")
     except KeyboardInterrupt:
         print("\nStopped.")
     finally:

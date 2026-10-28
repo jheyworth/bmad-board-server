@@ -24,7 +24,7 @@ Install the BMad live kanban board in this project.
 2. Check uv is installed. If not, stop and tell me how to install it.
 3. Download https://raw.githubusercontent.com/jheyworth/bmad-board-server/main/scripts/board_server.py to scripts/board_server.py in this repo's root (create scripts/ if needed). Do not put it inside _bmad/: the BMad installer replaces that folder. If scripts/board_server.py already exists, ask me before replacing it. Do not change the file.
 4. Test it: run `uv run scripts/board_server.py --no-open --port 8799`, fetch http://127.0.0.1:8799/ with curl, confirm the page shows the initiative name and the column counts, then stop the server.
-5. Tell me the command to start it and the address to open. Do not set it to start at login.
+5. Tell me the commands to start and stop it (uv run scripts/board_server.py --start and --stop) and the address to open. Do not set it to start at login.
 ```
 
 ## Install by hand
@@ -38,18 +38,33 @@ curl -fsSL https://raw.githubusercontent.com/jheyworth/bmad-board-server/main/sc
 
 ## Run it
 
-Paste this into Claude Code in your project:
+**Start:** paste this into Claude Code in your project:
 
 ```text
-Start the BMad live kanban board: from the project root, run uv run scripts/board_server.py in the background. If port 8765 is in use, add --port 8766. Once it prints its address, give me the link and leave it running.
+Start the BMad board: run uv run scripts/board_server.py --start from the project root and give me the link.
 ```
 
-It opens your browser at `http://127.0.0.1:8765/`. To stop it, ask Claude Code to stop the board.
+**Stop:** paste this:
 
-To run it yourself instead: `uv run scripts/board_server.py` from the project root, and **Ctrl+C** to stop.
+```text
+Stop the BMad board: run uv run scripts/board_server.py --stop from the project root.
+```
+
+Or run the same two commands yourself in a terminal, from the project root:
+
+```sh
+uv run scripts/board_server.py --start   # opens http://127.0.0.1:8765/ and returns
+uv run scripts/board_server.py --stop
+```
+
+A board started with `--start` runs on its own: it keeps going after you close the terminal or the Claude Code session that started it, until you run `--stop`. If you use another port, give `--stop` the same `--port`.
+
+Plain `uv run scripts/board_server.py` (without `--start`) runs the board inside that terminal instead: **Ctrl+C** stops it, and closing the terminal or Claude Code session stops it too.
 
 | Flag | What it does |
 | --- | --- |
+| `--start` | Run the board on its own and return |
+| `--stop` | Stop the board on `--port` |
 | `--port 8765` | Port to listen on (127.0.0.1 only) |
 | `--no-open` | Don't open the browser |
 | `--folder <initiative folder>` | Pick the initiative when there is more than one |

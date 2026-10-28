@@ -11,19 +11,17 @@ The prompt is the source of truth. If you edit the `.py` by hand, the next rebui
 
 ## Using it
 
-Start it by pasting this into Claude Code in your project:
-
-```text
-Start the BMad live kanban board: from the project root, run uv run scripts/board_server.py in the background. If port 8765 is in use, add --port 8766. Once it prints its address, give me the link and leave it running.
-```
-
-Ask Claude Code to stop the board when you're done. Or run it yourself from the project root (Ctrl+C to stop):
+Start and stop it with one command each, from the project root. Run them in a terminal, or ask Claude Code to run them:
 
 ```sh
-uv run scripts/board_server.py            # opens http://127.0.0.1:8765/
-uv run scripts/board_server.py --port 9000 --no-open
-uv run scripts/board_server.py --folder initiative-my-project
+uv run scripts/board_server.py --start    # opens http://127.0.0.1:8765/ and returns
+uv run scripts/board_server.py --stop
+uv run scripts/board_server.py --start --port 9000 --no-open
+uv run scripts/board_server.py --stop --port 9000
+uv run scripts/board_server.py --start --folder initiative-my-project
 ```
+
+A board started with `--start` keeps running until `--stop`, even after the terminal or Claude Code session that started it ends. Without `--start`, the board runs inside that terminal and Ctrl+C stops it.
 
 What's on the page:
 

@@ -9,6 +9,7 @@ Build me a live kanban board of this project's epics and stories, served on loca
 ## What I want
 
 - One command starts it: `uv run scripts/board_server.py` (put the script in this repo's own scripts folder, not inside _bmad/, which the BMad installer replaces).
+- `--start` and `--stop` let me start and stop it with one command each, from a terminal or by asking Claude Code. A board started with `--start` keeps running after the terminal or Claude Code session that started it ends.
 - It opens my browser at `http://127.0.0.1:<port>`. Every page load reads the current ticket status. Every 30 seconds the template's script fetches the page again and swaps in the new content without reloading, so nothing I have open or selected is lost.
 - It only reads. It never changes a ticket.
 - The top of the page answers "what's next?" with the same answer Sofia gives, because both read the same command.
@@ -525,6 +526,13 @@ If `status` itself fails, the page is the header (initiative name, date, "read a
 - Escape every ticket text before it goes into the page.
 - If tickets.py fails or prints something that is not JSON, show the error on the page in plain words. Do not crash the server.
 - Ctrl+C stops it cleanly.
+- `--start` runs the board as its own process and returns once the page answers: on Mac and Linux a new session (`start_new_session=True`), on Windows a detached new process group, with stdin closed and its output in `bmad-board-<port>.log` in the system temp folder. It passes on `--port` and `--folder` and the child always gets `--no-open`; `--start` itself opens the browser unless `--no-open` is given. It prints "Board for <initiative name> running at <address>" and, on the next line, "Stop it with: uv run scripts/board_server.py --stop" (with `--port <port>` added when not 8765).
+  - Before starting, it checks the port. If a board already answers there, it prints "A board is already running at <address>" and the stop line, and exits 0. If something else answers, it says the port is in use by something else and exits 1.
+  - If the child exits before the page answers, print the child's output and exit 1. If the page does not answer within 10 seconds, say so with the log's path and exit 1.
+- Every response carries the header `X-Board-Server: 1`, so `--start` can tell the board from anything else on the port.
+- `--stop` sends `POST /__stop` with the header `X-Board-Stop: 1` to 127.0.0.1 on `--port`. The board answers that request, and only that request, with the body `board stopping`, then shuts down cleanly. Anything else sent to `/__stop` gets 404. A web page cannot send this request, because the custom header needs a CORS preflight and the board refuses it.
+  - `--stop` then waits up to 5 seconds for the port to stop answering and prints "Board on port <port> stopped." With nothing on the port, it prints "No board running on port <port>." and exits 0. If something else answers, it prints that the port is in use by something that is not the board, leaves it alone, and exits 1.
+  - `--stop` never reads the tickets or the initiative folder. `--start` and `--stop` cannot be given together.
 
 ## Check it before you tell me it is done
 
@@ -541,4 +549,5 @@ If `status` itself fails, the page is the header (initiative name, date, "read a
 - In the headless browser: click a card and confirm the panel opens with its title and the card is marked; trigger a refresh and confirm the panel is still open, with the same content; press Esc and confirm it closes; click an epic's Details and confirm the epic opens; reload and confirm it reopens.
 - Take a screenshot at 1600px wide (for example headless Chrome) and look at it. With the pointer away from the cards and the panel closed, it should look the same as before the Copy button was added, apart from the Details buttons on the bands. Take a second screenshot with a story's panel open and look at it.
 - Tell me which parts today's data could not test (for example an empty column or an empty list), so I know what has only been checked with a count of 0.
+- Run `--start` on a spare port and confirm the page answers and the board's process is in its own session (on Mac or Linux, `ps -o pgid` differs from your shell's). Run `--start` again and confirm it says a board is already running and no second one starts. Run `--stop` and confirm the port stops answering, then `--stop` again and confirm "No board running". Start a plain `python3 -m http.server` on another spare port and confirm `--stop` leaves it running and `--start` refuses it. Confirm `POST /__stop` without the header gets 404. Run the board in the foreground and confirm `--stop` ends it too.
 - Stop every server you started. Tell me the command to start it and the address to open. Do not set it to start at login unless I ask.
