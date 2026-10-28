@@ -11,7 +11,13 @@ The prompt is the source of truth. If you edit the `.py` by hand, the next rebui
 
 ## Using it
 
-Start it from your project root:
+Start it by pasting this into Claude Code in your project:
+
+```text
+Start the BMad live kanban board: from the project root, run uv run scripts/board_server.py in the background. If port 8765 is in use, add --port 8766. Once it prints its address, give me the link and leave it running.
+```
+
+Ask Claude Code to stop the board when you're done. Or run it yourself from the project root (Ctrl+C to stop):
 
 ```sh
 uv run scripts/board_server.py            # opens http://127.0.0.1:8765/

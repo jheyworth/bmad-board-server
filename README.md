@@ -38,11 +38,15 @@ curl -fsSL https://raw.githubusercontent.com/jheyworth/bmad-board-server/main/sc
 
 ## Run it
 
-```sh
-uv run scripts/board_server.py
+Paste this into Claude Code in your project:
+
+```text
+Start the BMad live kanban board: from the project root, run uv run scripts/board_server.py in the background. If port 8765 is in use, add --port 8766. Once it prints its address, give me the link and leave it running.
 ```
 
-It opens your browser at `http://127.0.0.1:8765/`. Press **Ctrl+C** to stop.
+It opens your browser at `http://127.0.0.1:8765/`. To stop it, ask Claude Code to stop the board.
+
+To run it yourself instead: `uv run scripts/board_server.py` from the project root, and **Ctrl+C** to stop.
 
 | Flag | What it does |
 | --- | --- |
